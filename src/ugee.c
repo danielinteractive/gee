@@ -1621,8 +1621,7 @@ static MATRIX *VC_GEE_matsqrt(MATRIX *x)
   return tmp;
 }
 
-static MATRIX *VC_GEE_mat1over(x)
-  MATRIX *x;
+static MATRIX *VC_GEE_mat1over(MATRIX *x)
 {
     int i,j;
     MATRIX *tmp;
