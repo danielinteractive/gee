@@ -375,6 +375,7 @@ void Cgee(double *x, double *y, double *id, double *index, double *n, double *of
 	      // lag_wts = {1, 1.5, 3, inf}
 
 	      // now we use the maximum number of obs:
+	      // not clear if this is correct...
 	      for (ini = 1 ; ini < alpha_VC_GEE_bandwidth ; ini++)
 	      {
 	        MEL(lag_wts, 0, ini) = dmaxni/(dmaxni - (double)ini);

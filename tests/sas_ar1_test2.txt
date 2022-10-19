@@ -1,0 +1,74 @@
+                                                           The SAS System                Wednesday, October 19, 2022 09:55:00 PM   1
+
+                                                        The GENMOD Procedure
+
+                                                         Model Information
+
+                                                   Data Set               ANA.DAT
+                                                   Distribution            Normal
+                                                   Link Function         Identity
+                                                   Dependent Variable      BREAKS
+
+
+                                              Number of Observations Read           3
+                                              Number of Observations Used           3
+
+
+                                                      Class Level Information
+ 
+                                                   Class        Levels    Values
+
+                                                   WOOL              2    A B   
+                                                   TIME              2    1 2   
+                                                   TENSION           1    L     
+
+
+                                                       Parameter Information
+ 
+                                                     Parameter       Effect
+
+                                                     Prm1            Intercept
+
+
+                            Algorithm converged.                                                       
+
+
+                                                       GEE Model Information
+
+                                          Correlation Structure                     AR(1)
+                                          Within-Subject Effect           TIME (2 levels)
+                                          Subject Effect                  WOOL (2 levels)
+                                          Number of Clusters                            2
+                                          Correlation Matrix Dimension                  2
+                                          Maximum Cluster Size                          2
+                                          Minimum Cluster Size                          1
+
+
+                            Algorithm converged.                                                       
+
+
+                                                     Working Correlation Matrix
+ 
+                                                                Col1         Col2
+
+                                                   Row1       1.0000      -0.7663
+                                                   Row2      -0.7663       1.0000
+
+
+                                                           The SAS System                Wednesday, October 19, 2022 09:55:00 PM   2
+
+                                                        The GENMOD Procedure
+
+                                                         GEE Fit Criteria
+
+                                                       QIC            2.0582
+                                                       QICu           4.0000
+
+
+                                                Analysis Of GEE Parameter Estimates
+                                                 Empirical Standard Error Estimates
+ 
+                                                      Standard   95% Confidence
+                                   Parameter Estimate    Error       Limits            Z Pr > |Z|
+
+                                   Intercept  21.0755   0.7288  19.6472  22.5039   28.92   <.0001
