@@ -130,6 +130,7 @@ static MATRIX *VC_GEE_create_matrix(int, int, int),
     *VC_GEE_ident(int),
     *VC_GEE_form_diag(MATRIX *),
     *VC_GEE_corner(MATRIX *, int, int),
+    *VC_GEE_subset(MATRIX *, MATRIX *),
     *VC_GEE_covlag(MATRIX *, int, int),
     *VC_GEE_toeplitz(MATRIX *),
     *VC_GEE_band(MATRIX *, int),
@@ -152,7 +153,7 @@ static MATRIX *VC_GEE_luinv(MATRIX *);
 static int VC_GEE_split(MATRIX *, MATRIX *, MATRIX *[]),
     VC_GEE_nchanges(MATRIX *);
 
-void Cgee(double *, double *, double *, double *, double *, int *, int *,
+void Cgee(double *, double *, double *, double *, double *, double *, int *, int *,
 	  int *, int *, double *, double *, double *, double *, double *,
 	  double *, int *, int *, int *, int *, int *, int *);
 

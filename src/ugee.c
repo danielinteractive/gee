@@ -20,13 +20,18 @@ static MATRIX *VC_GEE_diag_as_vec(MATRIX *);
 static MATRIX *VC_GEE_matsqrt(MATRIX *);
 static MATRIX *VC_GEE_mat1over(MATRIX *);
 
-void Cgee(double *x, double *y, double *id, double *n, double *offset, int *nobs, int *p, int *parmvec, int *M_parm, double *S_beta, double *S_naivvar, double *S_robvar, double *S_phi, double *S_R, double *tol, int *maxsz, int *S_iter, int  *silent, int *errorstate, int *scale_fix, int *compatflag)
+void Cgee(double *x, double *y, double *id, double *index, double *n, double *offset, 
+          int *nobs, int *p, int *parmvec, int *M_parm, double *S_beta, 
+          double *S_naivvar, double *S_robvar, double *S_phi, double *S_R, 
+          double *tol, int *maxclsz, int *S_iter, int  *silent, int *errorstate, 
+          int *scale_fix, int *compatflag)
 {
 /* MAIN DECLS */
 
-    MATRIX *xin, *yin, *idin, *offin, *nin;
+    MATRIX *xin, *yin, *idin, *indexin, *offin, *nin;
     MATRIX **X, **Y, **OFFSET;
     MATRIX **N;
+    MATRIX **INDEX;
     /* MATRIX  *xpx, *xpy, *tmp; */
     MATRIX *beta, *betasave;
     MATRIX *alpha;
@@ -76,6 +81,7 @@ void Cgee(double *x, double *y, double *id, double *n, double *offset, int *nobs
     from_S(y, nobs, onep, yin)
     from_S(x, nobs, p, xin)
     from_S(id, nobs, onep, idin)
+    from_S(index, nobs, onep, indexin)
     from_S(offset, nobs, onep, offin)
     from_S(n, nobs, onep, nin)
     from_S(S_beta, p, onep, beta);
@@ -90,24 +96,30 @@ void Cgee(double *x, double *y, double *id, double *n, double *offset, int *nobs
     set_matrix_array(Y, nclust)
     set_matrix_array(OFFSET, nclust)
     set_matrix_array(N, nclust)
+    set_matrix_array(INDEX, nclust)
 
     VC_GEE_split(xin, idin, X);
     VC_GEE_split(yin, idin, Y);
     VC_GEE_split(offin, idin, OFFSET);
     VC_GEE_split(nin, idin, N);
+    VC_GEE_split(indexin, idin, INDEX);
 
     VC_GEE_destroy_matrix(xin);
     VC_GEE_destroy_matrix(yin);
     VC_GEE_destroy_matrix(idin);
     VC_GEE_destroy_matrix(offin);
     VC_GEE_destroy_matrix(nin);
+    VC_GEE_destroy_matrix(indexin);
 
-    maxni = Y[0]->nrows;
-    for (i = 1 ; i < nclust ; i++) {
-	ni = Y[i]->nrows;
-	if (ni > maxni) maxni = ni;
-    }
-    *maxsz = maxni;
+//     maxni = Y[0]->nrows;
+//     for (i = 1 ; i < nclust ; i++) {
+// 	ni = Y[i]->nrows;
+// 	if (ni > maxni) maxni = ni;
+//     }
+    // *maxsz = maxni;
+    // maxnip = &maxni;
+    // dmaxni = (double)maxni;
+    maxni = *maxclsz;
     maxnip = &maxni;
     dmaxni = (double)maxni;
 
@@ -617,20 +629,20 @@ void Cgee(double *x, double *y, double *id, double *n, double *offset, int *nobs
 	    // we would take additionally the indices of the observations
 	    // and then just return that submatrix - because
 	    // R is a correlation matrix.
-	    this_R = VC_GEE_corner(R, ni, ni);
-	    Rprintf("cluster %d g\n",i);
-
-	    Rprintf("VC_GEE_start inver\n");
-	     Rprintf("D: %d x %d, R: %d x %d\n",Di->nrows,
-	     Di->ncols, this_R->nrows, this_R->ncols);
+	    this_R = VC_GEE_subset(R, INDEX[i]);
+	    // Rprintf("cluster %d g\n",i);
+	    // 
+	    // Rprintf("VC_GEE_start inver\n");
+	    //  Rprintf("D: %d x %d, R: %d x %d\n",Di->nrows,
+	    //  Di->ncols, this_R->nrows, this_R->ncols);
 	     // DSB: this fails when there only 4 and not 3 observations:
 	     // this is because the R matrix is not large enough - the last column
 	     // and row are not initialized
 	    Ri = VC_GEE_luinv(this_R);
-	    Rprintf("D: %d x %d, Ri: %d x %d\n",Di->nrows,
-	     Di->ncols, Ri->nrows, Ri->ncols);
+	    // Rprintf("D: %d x %d, Ri: %d x %d\n",Di->nrows,
+	    //  Di->ncols, Ri->nrows, Ri->ncols);
 	    Dop = VC_GEE_matmult(VC_GEE_transp(Di), Ri);
-	    Rprintf("end inver\n");
+	    // Rprintf("end inver\n");
 	  }
 	  else Dop = VC_GEE_transp(Di);
 
@@ -787,7 +799,7 @@ void Cgee(double *x, double *y, double *id, double *n, double *offset, int *nobs
       phiLZ += MEL(ete,0,0) ;
 
       if (corstruct != independence)
-        DRop = VC_GEE_matmult(VC_GEE_transp(Di), VC_GEE_luinv(VC_GEE_corner(R, ni, ni)));
+        DRop = VC_GEE_matmult(VC_GEE_transp(Di), VC_GEE_luinv(VC_GEE_subset(R, INDEX[i])));
       else
         DRop = VC_GEE_transp(Di);
 
@@ -959,6 +971,38 @@ static MATRIX *VC_GEE_corner(MATRIX *mat, int nr, int nc)
   return tmp;
 }
 
+// This extracts the subset of mat according to the rows/cols index vector -
+// note that index is 1-based and integer valued double vector in the input here.
+static MATRIX *VC_GEE_subset(MATRIX *mat, MATRIX *index)
+{
+  MATRIX *tmp;
+  double *load;
+  int i,j,sr, sc, dim_result, row, col;
+  sr = mat->nrows;
+  sc = mat->ncols;
+  dim_result = index->nrows;
+
+  tmp = VC_GEE_create_matrix(dim_result, dim_result, EPHEMERAL);
+  load = tmp->data;
+  for (i = 0 ; i < dim_result ; i++)
+  {
+    row = (int) MEL(index, i, 0) - 1; // as index is 1-based.
+    
+    for (j = 0 ; j < dim_result ; j++)
+    {
+      col = (int) MEL(index, j, 0) - 1; // as index is 1-based.
+      
+      if ((row >= sr) || (col >= sc))
+      {
+        error("VC_GEE_subset: request not a submatrix.\nfatal error");
+      }
+      
+      *(load++) = MEL(mat, row, col); 
+    }
+  }
+  free_if_ephemeral(mat);
+  return tmp;
+}
 
 static MATRIX *VC_GEE_extract_rows(MATRIX *Source, int VC_GEE_start, int end)
   /* purely zero-based */
@@ -1696,7 +1740,7 @@ static MATRIX *VC_GEE_matncdf(MATRIX *x)
 #include <R_ext/Rdynload.h>
 
 static const R_CMethodDef CEntries[] = {
-  {"Cgee", (DL_FUNC) &Cgee, 21},
+  {"Cgee", (DL_FUNC) &Cgee, 22},
   {NULL, NULL, 0}
 };
 

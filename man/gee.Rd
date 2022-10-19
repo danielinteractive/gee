@@ -11,7 +11,7 @@
   Equation fit of the data.
 }
 \usage{
-gee(formula, id,
+gee(formula, id, index,
     data, subset, na.action,
     R = NULL, b = NULL,
     tol = 0.001, maxiter = 25,
@@ -30,6 +30,13 @@ gee(formula, id,
   the same as the number of observations.  Data are assumed to be sorted
   so that observations on a cluster are contiguous rows for all entities
   in the formula.
+}
+\item{index}{
+  a vector identifying the index of the observations within each cluster. 
+  By default, it is assumed that the observations start with index 1 and 
+  are subsequent. For \code{"stat_M_dep"} and \code{"AR-M"} correlation 
+  structures the user is warned if they don't provide an explicit \code{index}
+  because results will change according to the index.
 }
 \item{data}{
   an optional data frame in which to interpret the variables occurring

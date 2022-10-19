@@ -25,8 +25,9 @@ print.gee <- function(x, digits = NULL, quote = FALSE, prefix = "", ...)
     ys[, 5] <- x$residuals
     dimnames(ys) <- list(1:length(x$y), c("ID", "Y", "LP", "fitted",
                                           "Residual")) #       cat("\nFitted Values:\n")
-    cat("\nNumber of observations : ", x$nobs, "\n")
-    cat("\nMaximum cluster size   : ", x$max.id, "\n")
+    cat("\nNumber of observations  : ", x$nobs, "\n")
+    cat("\nMaximum cluster size    : ", x$maxclsz, "\n")
+    cat("\nMaximum obs per cluster : ", x$maxobs, "\n")
     nas <- x$nas
     if(any(nas))
         cat("\n\nCoefficients: (", sum(nas),
@@ -131,7 +132,7 @@ summary.gee <- function(object, correlation = TRUE, ...)
     attr(summary,"class") <- "summary.gee"
     summary
 }
-gee <- function(formula = formula(data), id = id, data = parent.frame(),
+gee <- function(formula = formula(data), id = id, index = NULL, data = parent.frame(),
                 subset, na.action, R = NULL, b = NULL, tol = 0.001, maxiter = 25,
                 family = gaussian, corstr = "independence", Mv = 1,
                 silent = TRUE, contrasts = NULL, scale.fix = FALSE,
@@ -193,15 +194,44 @@ gee <- function(formula = formula(data), id = id, data = parent.frame(),
         message("running glm to get initial regression estimate")
 ### <tsl>	beta <- as.numeric(glm(m, family = family)$coef)
         mm <- match.call(expand.dots = FALSE)
-        mm$R <- mm$b <- mm$tol <- mm$maxiter <- mm$link <- mm$varfun <-mm$corstr <- mm$Mv <- mm$silent <- mm$contrasts <-mm$scale.fix <- mm$scale.value <- mm$id<-NULL
+        mm$R <- mm$b <- mm$tol <- mm$maxiter <- mm$link <- mm$varfun <-mm$corstr <- mm$Mv <- mm$silent <- mm$contrasts <-mm$scale.fix <- mm$scale.value <- mm$id<- mm$index <- NULL
         mm[[1]]<-as.name("glm")
         beta <- eval(mm, parent.frame())$coef
 ### </tsl>
         print(beta)
         beta <- as.numeric(beta)
     }
-    if(length(id) != length(y))  stop("Id and y not same length")
-    maxclsz <- as.integer(max(unlist(lapply(split(id, id), "length"))))
+    if (length(id) != length(y)) stop("Id and y not same length")
+    id <- as.integer(id)
+    if (any(diff(id) < 0)) 
+      stop("id needs to be ordered set of factor levels or integers")
+    id_list <- split(id, id)
+    auto_index <- is.null(index)
+    if (auto_index) {
+      index <- as.integer(unlist(lapply(id_list, seq_along)))
+    } else {
+      index <- model.extract(m, index)
+      if (is.null(index)) 
+        stop("index variable not found")
+      index <- as.integer(index)
+      if (any(is.na(index)))
+        stop("index must not be NA")
+      if (any(index) < 1)
+        stop("index needs to start with 1")
+      if (!all(is.finite(index)))
+        stop("index needs to be finite")      
+    }
+    index_list <- split(index, id)
+    if (any(vapply(index_list, is.unsorted, logical(1L)))) 
+      stop("index needs to be sorted for each id")
+    if (any(unlist(lapply(index_list, duplicated))))
+      stop("index needs to be unique for each id")
+    maxobs <- as.integer(max(unlist(lapply(id_list, length))))
+    maxclsz <- max(vapply(index_list, max, integer(1L)))
+    # Note: Maximum cluster size could be larger than the maximum obs per cluster.
+    # So we don't need to assert equality here.
+    if (maxclsz < maxobs) 
+      stop("maximum cluster size cannot be smaller than maximum number of observations")
     maxiter <- as.integer(maxiter)
     silent <- as.integer(silent)
     if(length(offset) <= 1)  offset <- rep(0, length(y))
@@ -210,7 +240,7 @@ gee <- function(formula = formula(data), id = id, data = parent.frame(),
     if(!is.null(R)) {
         Rr <- nrow(R)
         if(Rr != ncol(R)) stop("R is not square!")
-        if(Rr < maxclsz) stop("R not big enough to accommodate some clusters.")
+        if(Rr < maxclsz) stop("R not big enough to accommodate all indexed repetitions.")
     }
     else {
         R <- matrix(as.double(rep(0, maxclsz * maxclsz)), nrow = maxclsz)
@@ -234,6 +264,8 @@ gee <- function(formula = formula(data), id = id, data = parent.frame(),
         stop("unknown varfun.")
     if(corstrv < 1)
         stop("unknown corstr.")
+    if ((corstrv %in% c(3L, 6L)) && auto_index) 
+      warning("index automatically generated, may affect results for corstr ", corstrs[corstrv])
     naivvar <- matrix(rep(0, p * p), nrow = p)
     robvar <- matrix(rep(0, p * p), nrow = p)
     phi <- as.double(scale.value)
@@ -241,13 +273,14 @@ gee <- function(formula = formula(data), id = id, data = parent.frame(),
     errstate <- as.integer(1)
     tol <- as.double(tol)
     Mv <- as.integer(Mv)
-    maxcl <- as.integer(0)
+    maxclsz <- as.integer(maxclsz)
     if(!(is.double(x)))
         x <- as.double(x)
     if(!(is.double(y)))
         y <- as.double(y)
     if(!(is.double(id)))
         id <- as.double(id)
+    index <- as.double(index)
     if(!(is.double(N)))
         N <- as.double(N)
     modvec <- as.integer(c(linkv, varfunv, corstrv))
@@ -257,6 +290,7 @@ gee <- function(formula = formula(data), id = id, data = parent.frame(),
             x,
             y,
             id,
+            index,
             N,
             offset,
             nobs,
@@ -269,7 +303,7 @@ gee <- function(formula = formula(data), id = id, data = parent.frame(),
             sc = phi,
             wcor = R,
             tol,
-            mc = maxcl,
+            maxclsz = maxclsz,
             iter = maxiter,
             silent,
             err = errstate,
@@ -302,6 +336,8 @@ gee <- function(formula = formula(data), id = id, data = parent.frame(),
     fit$formula <- as.vector(attr(Terms, "formula"))
     fit$contrasts <- attr(x, "contrasts")
     fit$nobs <- nobs
+    fit$maxobs <- maxobs
+    fit$maxclsz <- maxclsz
     fit$iterations <- z$iter
     fit$coefficients <- as.vector(z$estb)
     fit$nas <- is.na(fit$coefficients)
@@ -316,6 +352,7 @@ gee <- function(formula = formula(data), id = id, data = parent.frame(),
     fit$family <- family
     fit$y <- as.vector(y)
     fit$id <- as.vector(id)
+    fit$index <- as.vector(index)
     fit$max.id <- z$mc
     z$wcor <- matrix(z$wcor, ncol = maxclsz)
     fit$working.correlation <- z$wcor
